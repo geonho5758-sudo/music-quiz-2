@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>本物はどれ？</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#16202b;
+  --paper:#f5f0e4;
+  --paper-deep:#e8dfc9;
+  --vermilion:#c9452f;
+  --indigo:#2f5d7c;
+  --gold:#d9a441;
+  --green:#3f7a4d;
+  --line:rgba(22,32,43,.16);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:'Zen Maru Gothic','Gowun Dodum',system-ui,sans-serif;
+  background:var(--paper);
+  color:var(--ink);
+  overflow:hidden;
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+.screen{display:none;height:100vh}
+.screen.on{display:flex}
+
+/* ---------- setup ---------- */
+#setup{flex-direction:column;align-items:center;justify-content:center;gap:2.4rem;padding:2rem}
+.brand{text-align:center;line-height:1.15}
+.brand .ja{font-size:clamp(2.4rem,6.4vw,4.6rem);font-weight:900;letter-spacing:.04em}
+.brand .ja span{color:var(--vermilion)}
+.brand .ko{margin-top:.6rem;font-size:clamp(.95rem,1.6vw,1.25rem);color:rgba(22,32,43,.6)}
+.teamform{display:flex;gap:1.5rem;flex-wrap:wrap;justify-content:center}
+.teamfield{display:flex;flex-direction:column;gap:.5rem}
+.teamfield label{font-size:.9rem;color:rgba(22,32,43,.55)}
+.teamfield input{
+  font-family:inherit;font-size:1.5rem;font-weight:700;padding:.7rem 1.1rem;width:min(19rem,78vw);
+  background:#fff;border:2px solid var(--line);border-radius:.7rem;color:var(--ink);
+}
+.teamfield input:focus{outline:none;border-color:var(--indigo)}
+#f1:focus{border-color:var(--vermilion)}
+.start{
+  background:var(--ink);color:var(--paper);font-size:1.35rem;font-weight:700;
+  padding:1rem 3.4rem;border-radius:999px;letter-spacing:.04em;
+}
+.start:hover{background:var(--vermilion)}
+.hint-line{font-size:.9rem;color:rgba(22,32,43,.5);text-align:center;line-height:1.9}
+kbd{
+  font-family:inherit;font-weight:700;background:var(--paper-deep);
+  border-radius:.35rem;padding:.12rem .5rem;font-size:.85em;
+}
+
+/* ---------- board ---------- */
+#board{flex-direction:column;padding:1.6vh 2vw}
+.scores{display:flex;gap:1.2vw;flex-shrink:0}
+.team{
+  flex:1;background:#fff;border-radius:1rem;padding:1.1vh 1.6vw;
+  display:flex;align-items:center;justify-content:space-between;
+  border:3px solid transparent;transition:transform .12s;
+}
+.team.a{border-color:var(--vermilion)}
+.team.b{border-color:var(--indigo)}
+.team.bump{transform:scale(1.04)}
+.team .nm{font-size:clamp(1rem,2.1vw,1.9rem);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.team .sc{font-size:clamp(1.8rem,4.4vw,3.6rem);font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
+.team.a .sc{color:var(--vermilion)}
+.team.b .sc{color:var(--indigo)}
+
+.meta{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1.2vh .3vw .8vh;flex-shrink:0}
+.meta .left{display:flex;align-items:center;gap:.8rem}
+.lvl{font-size:clamp(.85rem,1.6vw,1.15rem);font-weight:900;padding:.3rem 1.1rem;border-radius:999px;background:var(--paper-deep)}
+.lvl[data-l="일본"]{background:#f2dcd7;color:#a3341f}
+.lvl[data-l="한국"]{background:#dee6ef;color:#2f5d7c}
+.steps{display:flex;gap:.4rem}
+.steps span{
+  font-size:clamp(.75rem,1.35vw,1rem);font-weight:700;padding:.28rem .85rem;border-radius:999px;
+  background:transparent;color:rgba(22,32,43,.35);border:2px solid var(--line);
+}
+.steps span.on{background:var(--gold);color:#fff;border-color:var(--gold)}
+.steps span.past{color:rgba(22,32,43,.55);border-color:rgba(22,32,43,.3)}
+.steps span.ans.on{background:var(--green);border-color:var(--green)}
+.count{font-size:clamp(.8rem,1.5vw,1.1rem);color:rgba(22,32,43,.5);font-variant-numeric:tabular-nums}
+
+.stage{flex:1;min-height:0;display:flex;gap:1.6vw;align-items:stretch}
+.media{
+  flex:1.15;min-width:0;background:#fff;border-radius:1.2rem;position:relative;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+}
+.listen{display:flex;flex-direction:column;align-items:center;gap:3vh;cursor:pointer;user-select:none;padding:2rem;text-align:center}
+.listen .q{font-size:clamp(1.6rem,4vw,3.2rem);font-weight:900;line-height:1.25}
+.listen .q span{color:var(--vermilion)}
+.listen .sub{font-size:clamp(.9rem,1.7vw,1.25rem);color:rgba(22,32,43,.5);line-height:1.6}
+.eq{display:flex;align-items:flex-end;gap:.7vw;height:14vh}
+.eq i{
+  display:block;width:clamp(10px,1.3vw,22px);height:18%;border-radius:999px;background:var(--paper-deep);
+  transition:background .2s;
+}
+.eq.play i{background:var(--gold);animation:eq 0.9s ease-in-out infinite}
+.eq.play i:nth-child(2){animation-delay:-.2s}
+.eq.play i:nth-child(3){animation-delay:-.5s}
+.eq.play i:nth-child(4){animation-delay:-.1s}
+.eq.play i:nth-child(5){animation-delay:-.7s}
+.eq.play i:nth-child(6){animation-delay:-.35s}
+.eq.play i:nth-child(7){animation-delay:-.6s}
+@keyframes eq{0%,100%{height:18%}50%{height:100%}}
+.warn{font-size:.9rem;color:var(--vermilion);font-weight:700;display:none}
+.warn.show{display:block}
+
+.video{position:absolute;inset:0;background:#000}
+.video iframe,.video #yt{width:100%;height:100%;border:0;display:block}
+.fallback{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2vh;padding:3vh 2vw;background:#fff}
+.fallback .cover{
+  width:min(52vh,30vw);aspect-ratio:1;border-radius:1rem;overflow:hidden;background:var(--paper-deep);
+  display:flex;align-items:center;justify-content:center;color:rgba(22,32,43,.35);box-shadow:0 0 0 1px var(--line);
+}
+.fallback .cover img{width:100%;height:100%;object-fit:cover;display:block}
+.fallback audio{width:min(26rem,90%)}
+.fallback .why{font-size:.8rem;color:rgba(22,32,43,.4)}
+
+.opts{width:min(44vw,40rem);display:flex;flex-direction:column;gap:1.2vh;min-width:0}
+.opt{
+  flex:1;background:#fff;border-radius:1rem;padding:1vh 1.4vw;
+  display:flex;align-items:center;gap:1.1vw;border:3px solid transparent;transition:all .18s;min-height:0;
+}
+.opt .num{
+  flex-shrink:0;width:clamp(2rem,3.4vw,3rem);height:clamp(2rem,3.4vw,3rem);border-radius:50%;
+  background:var(--paper);display:flex;align-items:center;justify-content:center;
+  font-size:clamp(1rem,1.9vw,1.5rem);font-weight:900;color:rgba(22,32,43,.55);
+}
+.opt .txt{min-width:0;display:flex;flex-direction:column;gap:.25vh}
+.opt .t{font-size:clamp(1.05rem,2.3vw,1.9rem);font-weight:900;line-height:1.25;word-break:keep-all;overflow-wrap:anywhere}
+.opt .a{font-size:clamp(.85rem,1.6vw,1.3rem);font-weight:700;color:var(--indigo);line-height:1.3}
+.opt.long .t{font-size:clamp(.95rem,1.8vw,1.45rem)}
+.opt.correct{background:#e2f0e4;border-color:var(--green)}
+.opt.correct .num{background:var(--green);color:#fff}
+.opt.correct .t{color:#2b5c37}
+.opt.wrong{opacity:.32}
+
+.bar{
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:1.4vw;
+  padding-top:1.2vh;font-size:clamp(.7rem,1.25vw,.95rem);color:rgba(22,32,43,.45);flex-wrap:wrap;
+}
+.bar b{font-weight:700;color:rgba(22,32,43,.7)}
+
+/* ---------- picker ---------- */
+#picker{
+  position:fixed;inset:0;background:rgba(22,32,43,.55);z-index:50;
+  display:none;align-items:center;justify-content:center;padding:4vh 3vw;
+}
+#picker.on{display:flex}
+.sheet{
+  background:var(--paper);border-radius:1.4rem;width:min(64rem,94vw);max-height:92vh;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.sheet header{display:flex;gap:.6rem;padding:1.2rem 1.4rem .9rem;align-items:center;flex-wrap:wrap}
+.tab{
+  font-size:1.05rem;font-weight:700;padding:.55rem 1.5rem;border-radius:999px;
+  background:var(--paper-deep);color:rgba(22,32,43,.55);
+}
+.tab.on{background:var(--ink);color:var(--paper)}
+.rand{font-size:1rem;font-weight:700;padding:.55rem 1.2rem;border-radius:999px;background:var(--gold);color:#fff}
+.left-cnt{font-size:.9rem;color:rgba(22,32,43,.5);margin-left:.4rem}
+.sheet header .x{margin-left:auto;font-size:1.7rem;line-height:1;color:rgba(22,32,43,.4);padding:0 .5rem}
+.grid{
+  overflow-y:auto;padding:0 1.4rem 1.4rem;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(8.5rem,1fr));gap:.7rem;
+}
+.cell{background:#fff;border-radius:.8rem;padding:.85rem 1rem;text-align:left;border:2px solid transparent}
+.cell:hover{border-color:var(--indigo)}
+.cell.done{opacity:.42}
+.cell .n{font-size:.75rem;color:rgba(22,32,43,.4);font-weight:700}
+.cell .w{font-size:1.15rem;font-weight:700;margin-top:.15rem}
+.empty{grid-column:1/-1;text-align:center;padding:3rem 1rem;color:rgba(22,32,43,.4);font-size:1rem;line-height:1.9}
+</style>
+</head>
+<body>
+
+<section id="setup" class="screen on">
+  <div class="brand">
+    <div class="ja">本物は<span>どれ？</span></div>
+    <div class="ko">노래 듣고 진짜 제목·가수 찾기 · 5주년 파티</div>
+  </div>
+  <div class="teamform">
+    <div class="teamfield"><label for="f1">1팀 이름</label><input id="f1" value="さくら" maxlength="14"></div>
+    <div class="teamfield"><label for="f2">2팀 이름</label><input id="f2" value="ふじ" maxlength="14"></div>
+  </div>
+  <button class="start" id="go">시작하기</button>
+  <p class="hint-line">
+    <kbd>P</kbd> 문제표 · <kbd>R</kbd> 랜덤 · <kbd>Space</kbd> 어려운 부분 → 사비 → 정답 · <kbd>Enter</kbd> 바로 정답 · <kbd>S</kbd> 다시 듣기<br>
+    <kbd>1</kbd> <kbd>2</kbd> 점수 +1 · <kbd>Shift</kbd>+<kbd>1</kbd>/<kbd>2</kbd> 점수 −1 · <kbd>←</kbd>/<kbd>→</kbd> 이전·다음 문제 · <kbd>F</kbd> 영상↔커버 전환
+  </p>
+</section>
+
+<section id="board" class="screen">
+  <div class="scores">
+    <div class="team a" id="ta"><span class="nm" id="n1">さくら</span><span class="sc" id="s1">0</span></div>
+    <div class="team b" id="tb"><span class="nm" id="n2">ふじ</span><span class="sc" id="s2">0</span></div>
+  </div>
+  <div class="meta">
+    <div class="left">
+      <span class="lvl" id="lvl" data-l="일본">일본</span>
+      <div class="steps" id="steps">
+        <span data-s="1">① 어려운 부분</span><span data-s="2">② 사비</span><span class="ans" data-s="3">정답</span>
+      </div>
+    </div>
+    <span class="count" id="cnt">1 / 1</span>
+  </div>
+  <div class="stage">
+    <div class="media" id="media"></div>
+    <div class="opts" id="opts"></div>
+  </div>
+  <div class="bar">
+    <span><b>Space</b> 다음 단계 · <b>Enter</b> 정답 · <b>S</b> 다시 듣기</span>
+    <span><b>1</b>/<b>2</b> 득점 · <b>Shift+1</b>/<b>2</b> 감점</span>
+    <span><b>←</b>/<b>→</b> 이전·다음 · <b>R</b> 랜덤 · <b>P</b> 문제표 · <b>F</b> 영상↔커버</span>
+  </div>
+</section>
+
+<div id="picker">
+  <div class="sheet">
+    <header>
+      <button class="tab on" data-t="일본">일본노래</button>
+      <button class="tab" data-t="한국">한국노래</button>
+      <button class="tab" data-t="전체">전체</button>
+      <button class="rand" id="rand">랜덤 뽑기 (R)</button>
+      <span class="left-cnt" id="leftcnt"></span>
+      <button class="x" id="close" aria-label="닫기">&times;</button>
+    </header>
+    <div class="grid" id="grid"></div>
+  </div>
+</div>
+
+<audio id="snd" preload="auto"></audio>
+
+<script src="songs.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+let cur = null, step = 0, tab = '일본';
+let mode = 'video';            // 정답 화면: video(유튜브) / cover(커버+로컬 원곡)
+const score = [0, 0];
+const done = new Set();
+let history = [];
+let histPos = -1;
+const NUM = ['①', '②', '③', '④'];
+
+// 폴더 이름 헷갈려도 재생되게 여러 후보를 차례로 시도
+const AUDIO_FOLDERS = ['music/', 'audio/', 'songs/', 'mp3/', '노래/', ''];
+const COVER_FOLDERS = ['covers/', 'cover/', 'images/', 'music/', ''];
+const COVER_EXTS = ['jpg', 'jpeg', 'png', 'webp', 'JPG', 'PNG'];
+
+const snd = $('snd');
+let hasPart1 = {};            // 문제별 _1 파일 존재 여부 캐시
+
+/* ---------- 오디오 ---------- */
+function tryAudio(names, onOk, onFail){
+  const list = [];
+  names.forEach(n => AUDIO_FOLDERS.forEach(f => list.push(f + n)));
+  let i = 0;
+  function next(){
+    if(i >= list.length){ onFail && onFail(); return; }
+    const p = list[i++];
+    snd.onerror = next;
+    snd.oncanplay = () => { snd.oncanplay = null; snd.onerror = null; onOk && onOk(p); };
+    snd.src = p;
+    snd.load();
+  }
+  next();
+}
+
+function stopAudio(){ snd.onerror = null; snd.oncanplay = null; snd.pause(); setEq(false); }
+
+function setEq(on){ const e = document.querySelector('.eq'); if(e) e.classList.toggle('play', on); }
+snd.onplay = () => setEq(true);
+snd.onpause = () => setEq(false);
+snd.onended = () => setEq(false);
+
+function playPart(part){
+  stopAudio();
+  const w = $('warn'); if(w) w.classList.remove('show');
+  const id = cur.id;
+  if(part === 1 && hasPart1[id] === false){ step = 2; renderSteps(); renderListen(); playPart(2); return; }
+  tryAudio([id + '_' + part + '.mp3'],
+    () => { if(cur.id !== id) return; if(part === 1) hasPart1[id] = true; snd.currentTime = 0; snd.play().catch(() => {}); },
+    () => {
+      if(cur.id !== id) return;
+      if(part === 1){ hasPart1[id] = false; step = 2; renderSteps(); renderListen(); playPart(2); return; }
+      const w2 = $('warn'); if(w2) w2.classList.add('show');
+    });
+}
+
+function replay(){
+  if(step === 1 || step === 2){ snd.currentTime = 0; snd.play().catch(() => playPart(step)); }
+  else if(step === 3 && mode === 'cover'){ const a = $('fsnd'); if(a){ a.currentTime = 0; a.play().catch(() => {}); } }
+}
+
+/* ---------- 유튜브 ---------- */
+let ytApi = null, ytPlayer = null, ytTimer = null;
+function loadYtApi(){
+  if(ytApi) return ytApi;
+  ytApi = new Promise((res, rej) => {
+    if(window.YT && YT.Player){ res(); return; }
+    window.onYouTubeIframeAPIReady = () => res();
+    const s = document.createElement('script');
+    s.src = 'https://www.youtube.com/iframe_api';
+    s.onerror = () => { ytApi = null; rej(); };
+    document.head.appendChild(s);
+    setTimeout(() => rej(), 6000);
+  });
+  return ytApi;
+}
+
+function killVideo(){
+  clearTimeout(ytTimer);
+  if(ytPlayer){ try{ ytPlayer.destroy(); }catch(e){} ytPlayer = null; }
+}
+
+function showVideo(){
+  killVideo();
+  const id = cur.id;
+  $('media').innerHTML = '<div class="video"><div id="yt"></div></div>';
+  let started = false;
+  ytTimer = setTimeout(() => { if(!started && cur.id === id && step === 3) showCover('영상 응답이 없어서 커버로 대체했어요'); }, 9000);
+  loadYtApi().then(() => {
+    if(cur.id !== id || step !== 3 || mode !== 'video') return;
+    ytPlayer = new YT.Player('yt', {
+      videoId: cur.yt,
+      playerVars: { start: cur.start || 0, autoplay: 1, rel: 0, playsinline: 1, modestbranding: 1, ...(location.protocol.startsWith('http') ? { origin: location.origin } : {}) },
+      events: {
+        onReady: e => { e.target.playVideo(); },
+        onStateChange: e => { if(e.data === 1 || e.data === 3) started = true; },
+        onError: () => { if(cur.id === id) showCover('이 영상은 퍼가기가 막혀 있어서 커버로 대체했어요'); }
+      }
+    });
+  }).catch(() => { if(cur.id === id && step === 3) showCover('유튜브에 연결할 수 없어서 커버로 대체했어요'); });
+}
+
+function showCover(why){
+  killVideo();
+  mode = 'cover';
+  const id = cur.id;
+  $('media').innerHTML =
+    '<div class="fallback">' +
+      '<div class="cover" id="fcover"><span>커버 없음</span></div>' +
+      '<audio id="fsnd" controls></audio>' +
+      '<div class="why">' + (why || 'F 키로 영상 보기') + '</div>' +
+    '</div>';
+  // 커버 찾기
+  const c = [];
+  COVER_FOLDERS.forEach(f => COVER_EXTS.forEach(x => c.push(f + id + '.' + x)));
+  let i = 0;
+  const img = new Image();
+  img.onload = () => { const box = $('fcover'); if(box && cur.id === id){ box.innerHTML = ''; box.appendChild(img); } };
+  img.onerror = () => { if(i < c.length) img.src = c[i++]; };
+  img.src = c[i++];
+  // 원곡: _ans → _2 순서로
+  const a = $('fsnd');
+  const list = [];
+  [id + '_ans.mp3', id + '_2.mp3'].forEach(n => AUDIO_FOLDERS.forEach(f => list.push(f + n)));
+  let j = 0;
+  a.onerror = () => { if(j < list.length){ a.src = list[j++]; a.play().catch(() => {}); } };
+  a.src = list[j++];
+  a.play().catch(() => {});
+}
+
+/* ---------- 화면 ---------- */
+function renderSteps(){
+  document.querySelectorAll('#steps span').forEach(s => {
+    const n = +s.dataset.s;
+    s.classList.toggle('on', n === step);
+    s.classList.toggle('past', n < step);
+  });
+  const p1 = document.querySelector('#steps span[data-s="1"]');
+  p1.style.display = hasPart1[cur.id] === false ? 'none' : '';
+}
+
+function renderListen(){
+  const msg = step === 0
+    ? '<div class="sub">Space를 누르면 노래가 나와요</div>'
+    : step === 1 ? '<div class="sub">어려운 부분 · 여기서 맞히면 <b>2점</b></div>'
+    : '<div class="sub">사비 · 여기서 맞히면 <b>1점</b></div>';
+  $('media').innerHTML =
+    '<div class="listen" id="listen">' +
+      '<div class="q">진짜는 <span>몇 번</span>일까?</div>' +
+      '<div class="eq"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>' +
+      msg +
+      '<div class="warn" id="warn">오디오 파일을 못 찾았어요 — music 폴더의 ' + cur.id + '_' + (step || 1) + '.mp3 확인</div>' +
+    '</div>';
+  $('listen').onclick = () => { if(step === 0){ step = 1; renderSteps(); renderListen(); playPart(1); } else replay(); };
+  if(!snd.paused) setEq(true);
+}
+
+function renderOpts(){
+  const open = step === 3;
+  const long = cur.options.some(o => (o.t + o.a).length > 24) ? ' long' : '';   // 한 문제 안에선 글자 크기 통일
+  $('opts').innerHTML = cur.options.map((o, i) =>
+    '<div class="opt' + long + (open ? (i === cur.answer ? ' correct' : ' wrong') : '') + '">' +
+      '<span class="num">' + (i + 1) + '</span>' +
+      '<div class="txt"><span class="t">' + o.t + '</span><span class="a">' + o.a + '</span></div>' +
+    '</div>'
+  ).join('');
+}
+
+function render(){
+  if(!cur) return;
+  $('lvl').textContent = cur.cat + '노래';
+  $('lvl').dataset.l = cur.cat;
+  const pool = SONGS.filter(q => q.cat === cur.cat);
+  $('cnt').textContent = '#' + cur.id + ' · ' + (pool.indexOf(cur) + 1) + ' / ' + pool.length;
+  renderSteps();
+  renderOpts();
+  if(step === 3){
+    stopAudio();
+    done.add(cur.id);
+    if(mode === 'video' && cur.yt) showVideo(); else showCover(cur.yt ? '' : '유튜브 링크가 없어서 커버로 보여줘요');
+  } else {
+    renderListen();
+  }
+}
+
+function load(q){
+  stopAudio(); killVideo(); stopFallback();
+  cur = q; step = 0; mode = 'video';
+  render();
+}
+
+function visit(q){
+  history = history.slice(0, histPos + 1);
+  history.push(q);
+  histPos = history.length - 1;
+  load(q);
+}
+
+function prev(){ if(histPos > 0){ histPos--; load(history[histPos]); } }
+
+function advance(){
+  if(step === 0){ step = 1; renderSteps(); renderListen(); playPart(1); return; }
+  if(step === 1){ step = 2; renderSteps(); renderListen(); playPart(2); return; }
+  if(step === 2){ step = 3; render(); }
+}
+
+function reveal(){ if(step !== 3){ step = 3; render(); } }
+
+function bump(i, d){
+  score[i] = Math.max(0, score[i] + d);
+  $('s' + (i + 1)).textContent = score[i];
+  const t = $(i === 0 ? 'ta' : 'tb');
+  t.classList.add('bump');
+  setTimeout(() => t.classList.remove('bump'), 130);
+}
+
+function poolOf(t){ return t === '전체' ? SONGS : SONGS.filter(q => q.cat === t); }
+
+function next(){
+  const pool = poolOf(cur.cat);
+  const i = pool.indexOf(cur);
+  const rest = pool.slice(i + 1).concat(pool.slice(0, i)).filter(q => !done.has(q.id) && q !== cur);
+  if(rest.length) visit(rest[0]); else openPicker();
+}
+
+function random(){
+  const rest = poolOf(tab).filter(q => !done.has(q.id) && q !== cur);
+  if(!rest.length){ openPicker(); return; }
+  $('picker').classList.remove('on');
+  visit(rest[Math.floor(Math.random() * rest.length)]);
+}
+
+function grid(){
+  const pool = poolOf(tab);
+  const left = pool.filter(q => !done.has(q.id)).length;
+  $('leftcnt').textContent = '남은 문제 ' + left + ' / ' + pool.length;
+  $('grid').innerHTML = pool.length ? pool.map((q, i) =>
+    '<button class="cell' + (done.has(q.id) ? ' done' : '') + '" data-id="' + q.id + '">' +
+    '<span class="n">' + (i + 1) + '</span>' +
+    '<div class="w">문제 ' + (i + 1) + '</div></button>'
+  ).join('') : '<div class="empty">등록된 노래가 없어요<br>songs.js에 추가해주세요</div>';
+}
+
+function openPicker(){ grid(); $('picker').classList.add('on'); }
+
+$('go').onclick = () => {
+  $('n1').textContent = $('f1').value.trim() || '1팀';
+  $('n2').textContent = $('f2').value.trim() || '2팀';
+  $('setup').classList.remove('on');
+  $('board').classList.add('on');
+  if(SONGS.length) visit(SONGS[0]);
+  openPicker();
+  loadYtApi().catch(() => {});
+};
+
+$('close').onclick = () => $('picker').classList.remove('on');
+$('rand').onclick = random;
+
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('on'));
+  b.classList.add('on');
+  tab = b.dataset.t;
+  grid();
+});
+
+$('grid').onclick = e => {
+  const c = e.target.closest('.cell');
+  if(!c) return;
+  $('picker').classList.remove('on');
+  visit(SONGS.find(q => q.id === c.dataset.id));
+};
+
+document.addEventListener('keydown', e => {
+  if(!$('board').classList.contains('on')) return;
+  if(e.target.tagName === 'INPUT') return;
+  const k = e.key;
+  const pickerOn = $('picker').classList.contains('on');
+
+  if(k === 'p' || k === 'P' || k === 'ㅔ'){ e.preventDefault(); pickerOn ? $('picker').classList.remove('on') : openPicker(); return; }
+  if(k === 'r' || k === 'R' || k === 'ㄱ'){ e.preventDefault(); random(); return; }
+  if(pickerOn){ if(k === 'Escape') $('picker').classList.remove('on'); return; }
+
+  if(k === ' '){ e.preventDefault(); advance(); return; }
+  if(k === 'Enter'){ e.preventDefault(); reveal(); return; }
+  if(k === 's' || k === 'S' || k === 'ㄴ'){ e.preventDefault(); replay(); return; }
+  if(k === 'f' || k === 'F' || k === 'ㄹ'){
+    e.preventDefault();
+    if(step === 3){ if(mode === 'video') showCover(''); else { mode = 'video'; stopFallback(); showVideo(); } }
+    return;
+  }
+  if(k === 'ArrowRight'){ e.preventDefault(); next(); return; }
+  if(k === 'ArrowLeft'){ e.preventDefault(); prev(); return; }
+  if(k === '1'){ bump(0, 1); return; }
+  if(k === '2'){ bump(1, 1); return; }
+  if(k === '!'){ bump(0, -1); return; }
+  if(k === '@'){ bump(1, -1); return; }
+});
+
+function stopFallback(){ const a = $('fsnd'); if(a){ a.onerror = null; a.pause(); } }
+</script>
+</body>
+</html>
