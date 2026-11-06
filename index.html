@@ -86,6 +86,10 @@ kbd{
 .steps span.on{background:var(--gold);color:#fff;border-color:var(--gold)}
 .steps span.past{color:rgba(22,32,43,.55);border-color:rgba(22,32,43,.3)}
 .steps span.ans.on{background:var(--green);border-color:var(--green)}
+.worth{font-size:clamp(.8rem,1.5vw,1.1rem);font-weight:900;padding:.3rem 1rem;border-radius:999px;background:var(--vermilion);color:#fff;transition:background .2s}
+.worth[data-p="2"]{background:var(--indigo)}
+.worth[data-p="1"]{background:rgba(22,32,43,.55)}
+.worth:empty{display:none}
 .count{font-size:clamp(.8rem,1.5vw,1.1rem);color:rgba(22,32,43,.5);font-variant-numeric:tabular-nums}
 
 .stage{flex:1;min-height:0;display:flex;gap:1.6vw;align-items:stretch}
@@ -114,6 +118,9 @@ kbd{
 .warn.show{display:block}
 
 .video{position:absolute;inset:0;background:#000}
+.listenwrap{position:absolute;inset:0;z-index:2;background:#fff;display:flex;align-items:center;justify-content:center}
+.hiddenyt{position:absolute;inset:0;z-index:1}
+.hiddenyt iframe{width:100%;height:100%;border:0}
 .video iframe,.video #yt{width:100%;height:100%;border:0;display:block}
 .fallback{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2vh;padding:3vh 2vw;background:#fff}
 .fallback .cover{
@@ -200,6 +207,7 @@ kbd{
   <button class="start" id="go">시작하기</button>
   <p class="hint-line">
     <kbd>P</kbd> 문제표 · <kbd>R</kbd> 랜덤 · <kbd>Space</kbd> 어려운 부분 → 사비 → 정답 · <kbd>Enter</kbd> 바로 정답 · <kbd>K</kbd> 멈춤/이어 듣기 · <kbd>S</kbd> 처음부터 · <kbd>B</kbd> 보기 열기<br>
+    점수: 보기 나오기 전 <b>3점</b> · 보기 나온 후 <b>2점</b> · 사비 <b>1점</b><br>
     <kbd>1</kbd> <kbd>2</kbd> 점수 +1 · <kbd>Shift</kbd>+<kbd>1</kbd>/<kbd>2</kbd> 점수 −1 · <kbd>←</kbd>/<kbd>→</kbd> 이전·다음 문제 · <kbd>F</kbd> 영상↔커버 전환
   </p>
 </section>
@@ -215,6 +223,7 @@ kbd{
       <div class="steps" id="steps">
         <span data-s="1">① 어려운 부분</span><span data-s="2">② 사비</span><span class="ans" data-s="3">정답</span>
       </div>
+      <span class="worth" id="worth"></span>
     </div>
     <span class="count" id="cnt">1 / 1</span>
   </div>
@@ -301,10 +310,10 @@ function setEq(on){ const e = document.querySelector('.eq'); if(e) e.classList.t
 snd.onplay = () => { setEq(true); armCut(); };
 snd.onpause = () => { setEq(false); clearTimeout(cutTimer); };
 snd.onended = () => { setEq(false); showOpts(); };
-function showOpts(){ if(!shown && step < 3){ shown = true; renderOpts(); renderListen(); } }
+function showOpts(){ if(!shown && step < 3){ shown = true; renderOpts(); renderListen(); renderWorth(); } }
 
 function playPart(part){
-  stopAudio();
+  stopAudio(); stopYtAudio();
   cutDone = false;
   const w = $('warn'); if(w) w.classList.remove('show');
   const id = cur.id;
@@ -314,12 +323,17 @@ function playPart(part){
     () => {
       if(cur.id !== id) return;
       if(part === 1){ hasPart1[id] = false; step = 2; renderSteps(); renderListen(); playPart(2); return; }
-      const w2 = $('warn'); if(w2) w2.classList.add('show');
+      if(cur.yt){ playYtAudio(); return; }          // _2.mp3 없으면 유튜브 링크 시간부터 소리만
       showOpts();
+      const w2 = $('warn'); if(w2) w2.classList.add('show');
     });
 }
 
 function togglePause(){
+  if(step === 2 && ytAudio){
+    if(ytPlayer && ytPlayer.getPlayerState){ ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo(); }
+    return;
+  }
   if(step === 1 || step === 2){
     if(!snd.src) return;
     if(snd.paused) snd.play().catch(() => {}); else snd.pause();
@@ -330,6 +344,7 @@ function togglePause(){
 }
 
 function replay(){
+  if(step === 2 && ytAudio){ if(ytPlayer && ytPlayer.seekTo){ ytPlayer.seekTo(cur.start || 0, true); ytPlayer.playVideo(); } return; }
   if(step === 1 || step === 2){ cutDone = false; snd.currentTime = 0; snd.play().then(armCut).catch(() => playPart(step)); }
   else if(step === 3 && mode === 'cover'){ const a = $('fsnd'); if(a){ a.currentTime = 0; a.play().catch(() => {}); } }
 }
@@ -348,6 +363,42 @@ function loadYtApi(){
     setTimeout(() => rej(), 6000);
   });
   return ytApi;
+}
+
+let ytAudio = false;
+function stopYtAudio(){
+  if(!ytAudio) return;
+  ytAudio = false;
+  killVideo();
+  const h = document.querySelector('.hiddenyt'); if(h) h.remove();
+}
+function playYtAudio(){
+  const id = cur.id;
+  killVideo();
+  ytAudio = true;
+  const holder = document.createElement('div');
+  holder.className = 'hiddenyt';
+  holder.innerHTML = '<div id="yt"></div>';
+  $('media').appendChild(holder);
+  const fail = () => {
+    if(cur.id !== id || step !== 2) return;
+    setEq(false); showOpts();
+    const w = $('warn');
+    if(w){ w.textContent = '사비 파일도 없고 유튜브도 안 나와요 — music 폴더의 ' + id + '_2.mp3 확인'; w.classList.add('show'); }
+  };
+  loadYtApi().then(() => {
+    if(cur.id !== id || step !== 2 || !ytAudio) return;
+    ytPlayer = new YT.Player('yt', {
+      videoId: cur.yt,
+      playerVars: { start: cur.start || 0, autoplay: 1, controls: 0, rel: 0, playsinline: 1, ...(location.protocol.startsWith('http') ? { origin: location.origin } : {}) },
+      events: {
+        onReady: e => e.target.playVideo(),
+        onStateChange: e => { if(cur.id === id && step === 2) setEq(e.data === 1); },
+        onError: fail
+      }
+    });
+    setTimeout(() => { if(cur.id === id && step === 2) showOpts(); }, 15000);   // 유튜브 소리는 끝이 없으니 15초 뒤 보기 자동 공개
+  }).catch(fail);
 }
 
 function killVideo(){
@@ -404,6 +455,18 @@ function showCover(why){
 }
 
 /* ---------- 화면 ---------- */
+// 점수 규칙: 보기 전 3점 · 보기 후 2점 · 사비 1점
+function worth(){
+  if(step === 1) return shown ? 2 : 3;
+  if(step === 2) return 1;
+  return 0;
+}
+function renderWorth(){
+  const w = worth(), el = $('worth');
+  el.dataset.p = w;
+  el.textContent = w ? '지금 맞히면 ' + w + '점' : '';
+}
+
 function renderSteps(){
   document.querySelectorAll('#steps span').forEach(s => {
     const n = +s.dataset.s;
@@ -412,14 +475,19 @@ function renderSteps(){
   });
   const p1 = document.querySelector('#steps span[data-s="1"]');
   p1.style.display = hasPart1[cur.id] === false ? 'none' : '';
+  renderWorth();
 }
 
 function renderListen(){
   const msg = step === 0
     ? '<div class="sub">Space를 누르면 노래가 나와요</div>'
-    : step === 1 ? '<div class="sub">어려운 부분 · 여기서 맞히면 <b>2점</b>' + (shown ? '' : '<br>보기는 노래가 끝나면 나와요') + '</div>'
-    : '<div class="sub">사비 · 여기서 맞히면 <b>1점</b>' + (shown ? '' : '<br>보기는 노래가 끝나면 나와요') + '</div>';
-  $('media').innerHTML =
+    : step === 1 ? (shown
+        ? '<div class="sub">어려운 부분 · 지금 맞히면 <b>2점</b></div>'
+        : '<div class="sub">보기 나오기 전에 맞히면 <b>3점</b><br>보기는 B를 누르거나 노래가 끝나면 나와요</div>')
+    : '<div class="sub">사비 · 지금 맞히면 <b>1점</b>' + (shown ? '' : '<br>보기는 B를 누르거나 노래가 끝나면 나와요') + '</div>';
+  let wrap = $('listenwrap');
+  if(!wrap){ $('media').innerHTML = '<div class="listenwrap" id="listenwrap"></div>'; wrap = $('listenwrap'); }
+  wrap.innerHTML =
     '<div class="listen" id="listen">' +
       '<div class="q">진짜는 <span>몇 번</span>일까?</div>' +
       '<div class="eq"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>' +
@@ -427,7 +495,7 @@ function renderListen(){
       '<div class="warn" id="warn">오디오 파일을 못 찾았어요 — music 폴더의 ' + cur.id + '_' + (step || 1) + '.mp3 확인</div>' +
     '</div>';
   $('listen').onclick = () => { if(step === 0){ step = 1; renderSteps(); renderListen(); playPart(1); } else replay(); };
-  if(!snd.paused) setEq(true);
+  if(!snd.paused || (ytAudio && ytPlayer && ytPlayer.getPlayerState && ytPlayer.getPlayerState() === 1)) setEq(true);
 }
 
 function renderOpts(){
@@ -457,7 +525,7 @@ function render(){
   renderSteps();
   renderOpts();
   if(step === 3){
-    stopAudio();
+    stopAudio(); stopYtAudio();
     done.add(cur.id);
     if(mode === 'video' && cur.yt) showVideo(); else showCover(cur.yt ? '' : '유튜브 링크가 없어서 커버로 보여줘요');
   } else {
@@ -466,7 +534,8 @@ function render(){
 }
 
 function load(q){
-  stopAudio(); killVideo(); stopFallback();
+  stopAudio(); stopYtAudio(); killVideo(); stopFallback();
+  $('media').innerHTML = '';
   cur = q; step = 0; mode = 'video'; shown = false;
   render();
 }
